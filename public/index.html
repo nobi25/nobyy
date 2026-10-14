@@ -1,1 +1,39 @@
-1
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f6f0">
+  <meta name="description" content="نوبي، مساحتك لاكتشاف المانجا والمانهوا والروايات. مكتبة عربية، قراءة هادئة، وحكايات تستحق العودة.">
+  <title>نوبي — بين فصلٍ وآخر، عالمٌ جديد</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <link rel="stylesheet" href="/editorial.css">
+</head>
+<body>
+  <a class="skip-link" href="#view">انتقل إلى المحتوى</a>
+  <div class="edition-bar"><span>مساحة صغيرة. عوالم لا تنتهي.</span><span dir="ltr">THE NOBY READING CLUB</span></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="نوبي — الرئيسية"><span class="brand-mark">N<span>·</span></span><span class="brand-name">نوبي<small dir="ltr">NOBY</small></span></a>
+    <nav class="main-nav" aria-label="التنقل الرئيسي"><a href="/">الرئيسية</a><a href="/library">المكتبة</a><a href="/latest">أحدث الفصول</a><a href="/genres">التصنيفات</a><a href="/store">سوق نوبي</a></nav>
+    <div class="top-tools">
+      <button class="icon-btn" id="searchToggle" aria-label="افتح البحث" aria-expanded="false" aria-controls="searchDrawer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+      <button class="icon-btn" id="notificationsToggle" aria-label="الإشعارات" aria-expanded="false" aria-controls="notificationsDrawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 8-3 8-3 10h18c0-2-3-2-3-10M10 21h4"/></svg></button>
+      <button class="icon-btn" id="themeToggle" aria-label="تفعيل المظهر الليلي"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></svg></button>
+      <a class="login-link" id="loginOpen" href="/login">دخول</a><a class="btn primary compact" id="registerOpen" href="/register">انضم إلى نوبي <span>←</span></a><a class="avatar hidden" id="profileBtn" href="/profile" aria-label="حسابي">N</a>
+    </div>
+  </header>
+  <section class="search-drawer hidden" id="searchDrawer" aria-label="البحث في المكتبة"><form id="globalSearchForm"><label for="globalSearch">أي حكاية تبحث عنها؟</label><div class="search-input-row"><input id="globalSearch" placeholder="عنوان العمل أو اسم الحكاية…" autocomplete="off"><button class="btn primary" type="submit">بحث ←</button></div></form><div id="suggestions" aria-live="polite"></div></section>
+  <aside class="notifications-drawer hidden" id="notificationsDrawer" aria-label="إشعاراتك"><h3>صندوق إشعاراتك</h3><div id="notificationsList"></div><div class="actions"><button class="text-link" id="readAllNotifications">قراءة الكل</button><button class="text-link" id="clearNotifications">إخفاء الكل</button></div></aside>
+  <main id="view" tabindex="-1"><div class="loading-state"><span class="brand-mark">N·</span><p>نفتح لك باب الحكاية…</p></div></main>
+  <footer>
+    <div class="footer-main"><div><a class="brand" href="/"><span class="brand-mark">N<span>·</span></span><span class="brand-name">نوبي<small dir="ltr">NOBY</small></span></a><p>لكل قارئ حكاية.<br>ولكل حكاية مكان هنا.</p></div><div class="footer-links"><b>اكتشف نوبي</b><a href="/library">المكتبة</a><a href="/latest">أحدث الفصول</a><a href="/genres">التصنيفات</a></div><div class="footer-links"><b>مساحتك</b><a href="/profile">مكتبتي الشخصية</a><a href="/store">سوق النقاط</a><a href="/support">الدعم والبلاغات</a></div><div class="footer-note"><span class="eyebrow">عن هذه النسخة</span><p>نسخة معاينة ببيانات وقصص تجريبية. الحقوق محفوظة لأصحابها؛ لا تمثل الأعمال المعروضة مكتبة تجارية مرخّصة.</p><a class="text-link" href="/admin.html">لوحة الإدارة ←</a></div></div>
+    <div class="footer-bottom"><span>© <span id="year"></span> نوبي. صُنعت للحكايات ولمن يحبّها.</span><span dir="ltr">A LITTLE ESCAPE, A WHOLE NEW WORLD.</span></div>
+  </footer>
+  <div class="modal hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="backdrop" data-close="authModal"></div><div class="modal-card"><button class="modal-close" data-close="authModal" aria-label="إغلاق">×</button><span class="brand-mark">N·</span><span class="eyebrow">نادي قراء نوبي</span><h2 id="authTitle">أهلًا بعودتك</h2><p id="authSubtitle">حكاياتك ومكتبتك بانتظارك.</p><form id="authForm"><label>البريد الإلكتروني<input type="email" name="email" required autocomplete="email" dir="ltr" maxlength="200"></label><label id="usernameLabel" class="hidden">اسم المستخدم<input name="username" minlength="3" maxlength="24" autocomplete="username"><small>حروف وأرقام وشرطة أو شرطة سفلية، دون مسافات.</small></label><label>كلمة المرور<input type="password" name="password" minlength="10" maxlength="128" required autocomplete="current-password" dir="ltr"></label><small id="passwordHint" class="hidden">10 أحرف على الأقل. اختر كلمة مرور فريدة.</small><input class="honeypot" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><button class="btn primary wide" id="authSubmit">تسجيل الدخول ←</button><p class="form-error" id="authError" role="alert"></p></form><button class="link-button" id="authSwitch">ليس لديك حساب؟ انضم إلينا</button></div></div>
+  <div class="modal hidden" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle"><div class="backdrop" data-close="reportModal"></div><div class="modal-card"><button class="modal-close" data-close="reportModal" aria-label="إغلاق">×</button><span class="eyebrow">لنبقِ نوبي مساحة أفضل</span><h2 id="reportTitle">أرسل بلاغًا</h2><p>أخبرنا بالتفاصيل لنراجع المشكلة.</p><form id="reportForm"><input type="hidden" name="target_id"><label>نوع البلاغ<select name="target_type"><option value="other">شكوى عامة</option><option value="work">عمل</option><option value="chapter">فصل</option><option value="comment">تعليق</option></select></label><label>السبب<select name="reason"><option>مشكلة تقنية</option><option>محتوى مخالف</option><option>حقوق نشر أو ترخيص</option><option>إساءة أو تنمر</option></select></label><label>التفاصيل<textarea name="details" rows="4" maxlength="1500" required></textarea></label><button class="btn primary wide">إرسال البلاغ ←</button><p class="form-error" id="reportMessage" role="status"></p></form></div></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript><p class="empty">فعّل JavaScript لاستعراض المكتبة وقراءة الفصول.</p></noscript>
+  <script src="/app.js" defer></script><script src="/experience.js" defer></script>
+</body>
+</html>
