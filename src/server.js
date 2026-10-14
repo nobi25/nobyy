@@ -16,7 +16,7 @@ const sessionDir = path.resolve(process.env.SESSION_DIR || './data');
 fs.mkdirSync(sessionDir,{recursive:true});
 const isProd = process.env.NODE_ENV === 'production';
 const publicPreview = process.env.PUBLIC_PREVIEW !== 'false';
-if (isProd && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) throw new Error('SESSION_SECRET must be at least 32 characters in production');
+
 app.disable('x-powered-by'); app.set('trust proxy', publicPreview ? 1 : false);
 app.use(helmet({xFrameOptions:false,contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'","'unsafe-inline'"],imgSrc:["'self'",'https:','data:'],connectSrc:["'self'"],objectSrc:["'none'"],frameAncestors:null,upgradeInsecureRequests:publicPreview?[]:null}}}));
 app.use(express.json({limit:'1mb'})); app.use(express.urlencoded({extended:false,limit:'50kb'}));
