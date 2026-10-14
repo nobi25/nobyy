@@ -1,38 +1,15 @@
 {
   "name": "noby-platform",
-  "version": "3.0.0",
-  "private": true,
-  "description": "Noby publishing platform with hardened moderation, shop ledger, maintenance enforcement and licensed localization pipeline",
-  "packageManager": "npm@10.9.2",
+  "version": "1.0.0",
+  "description": "Noby Platform",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "worker": "node worker/pipeline.js",
-    "check": "node --check src/server.js && node --check src/extensions.js && node --check src/db.js && node --check public/app.js && node --check public/experience.js && node --check public/admin.js && node --check scripts/curate.js && node --check scripts/test.js && node --check worker/pipeline.js && node --check worker/auto-localizer.js && node --check worker/daemon.js",
-    "test": "node scripts/test.js && node scripts/test-review-gate.js && node scripts/test-preview-session.js",
-    "localize": "node worker/auto-localizer.js",
-    "worker:daemon": "node worker/daemon.js",
-    "seed": "node scripts/seed.js",
-    "seed:curate": "node scripts/curate.js"
-  },
-  "engines": {
-    "node": ">=20"
+    "start": "node src/server.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.5.0",
-    "connect-sqlite3": "^0.9.16",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.1",
-    "express-rate-limit": "^7.4.1",
-    "express-session": "^1.18.1",
-    "helmet": "^8.0.0",
-    "zod": "^3.23.8"
-  },
-  "overrides": {
-    "connect-sqlite3": {
-      "sqlite3": "6.0.1"
-    }
+    "connect-sqlite3": "^7.0.0",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "sqlite3": "^5.1.7"
   }
 }
