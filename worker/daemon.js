@@ -1,1 +1,14 @@
-1
+#!/usr/bin/env node
+/* DB-backed supervisor for licensed localization jobs. It never bypasses access controls. */
+require('dotenv').config();
+const fs=require('node:fs');const path=require('node:path');const {spawn}=require('node:child_process');const Database=require('better-sqlite3');
+const db=new Database(path.resolve(process.env.DATABASE_PATH||'./data/noby.sqlite'));db.pragma('busy_timeout=5000');
+const root=path.resolve(process.env.NOBY_JOBS_DIR||'./data/jobs');const done=path.join(root,'completed'),failed=path.join(root,'failed');for(const d of [root,done,failed])fs.mkdirSync(d,{recursive:true});
+const interval=Math.max(5000,Number(process.env.NOBY_WORKER_POLL_MS||15000));let busy=false,stopping=false;
+function logJob(id,status,error=''){db.prepare('UPDATE automation_jobs SET status=?,attempts=attempts+1,last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status,error.slice(0,2000),id)}
+function createJob(file){const payload=JSON.parse(fs.readFileSync(file,'utf8'));const x=db.prepare('INSERT INTO automation_jobs(job_type,entity_type,entity_id,status,payload_json) VALUES(?,?,?,?,?)').run(payload.job_type||'localize','manifest',0,'queued',JSON.stringify({manifest:file}));return x.lastInsertRowid}
+function run(file){return new Promise((resolve,reject)=>{const child=spawn(process.execPath,[path.join(__dirname,'auto-localizer.js'),'--manifest',file,'--license-confirmed'],{stdio:'inherit',env:process.env});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(new Error(`localizer exited ${code}`)))})}
+async function tick(){if(busy||stopping)return;busy=true;try{const files=fs.readdirSync(root).filter(n=>n.endsWith('.json')&&!n.startsWith('.')).sort();for(const name of files){if(stopping)break;const src=path.join(root,name);let id;try{JSON.parse(fs.readFileSync(src,'utf8'));id=createJob(src);logJob(id,'running');await run(src);logJob(id,'completed');fs.renameSync(src,path.join(done,`${Date.now()}-${name}`))}catch(e){if(id)logJob(id,'failed',e.message);console.error(`[Noby worker] ${name}: ${e.message}`);try{fs.renameSync(src,path.join(failed,`${Date.now()}-${name}`))}catch{}}}
+ const retry=db.prepare("SELECT * FROM automation_jobs WHERE status='queued' AND entity_type='manifest' ORDER BY created_at LIMIT 1").get();if(retry){let payload={};try{payload=JSON.parse(retry.payload_json||'{}')}catch{}if(payload.manifest&&fs.existsSync(payload.manifest)){logJob(retry.id,'running');try{await run(payload.manifest);logJob(retry.id,'completed')}catch(e){logJob(retry.id,'failed',e.message)}}else logJob(retry.id,'failed','manifest file is missing')}
+}catch(e){console.error('[Noby worker] poll failed:',e.message)}finally{busy=false}}
+const timer=setInterval(tick,interval);tick();function stop(){stopping=true;clearInterval(timer);const wait=setInterval(()=>{if(!busy){clearInterval(wait);db.close();process.exit(0)}},250)}process.on('SIGTERM',stop);process.on('SIGINT',stop);console.log(`[Noby worker] DB-backed queue watching ${root} every ${interval}ms.`);
