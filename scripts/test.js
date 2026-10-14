@@ -1,0 +1,106 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {spawn,spawnSync}=require('node:child_process');
+const path=require('node:path'),fs=require('node:fs'),os=require('node:os');
+const Database=require('better-sqlite3');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'noby-integration-'));
+const port=Number(process.env.TEST_PORT||3137),base=`http://127.0.0.1:${port}`;
+const env={...process.env,NODE_ENV:'test',PUBLIC_PREVIEW:'false',PORT:String(port),DATABASE_PATH:path.join(temp,'test.sqlite'),SESSION_DIR:path.join(temp,'sessions'),SESSION_SECRET:'fixture-session-secret-for-isolated-test-123456789',ADMIN_EMAIL:'owner@test.invalid',ADMIN_PASSWORD:'Fixture-Owner-Password-123!'};
+const seed=spawnSync(process.execPath,[path.join(__dirname,'seed.js')],{env,encoding:'utf8'});
+assert.equal(seed.status,0,seed.stderr);
+const child=spawn(process.execPath,[path.join(__dirname,'..','src/server.js')],{env,stdio:['ignore','pipe','pipe']});
+let serverLogs='';child.stderr.on('data',b=>serverLogs+=b);let checks=0;
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+function client(){
+  let cookie='';
+  return async(pathname,method='GET',body,extra={})=>{
+    const r=await fetch(base+pathname,{method,headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{}),...extra},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+    const sc=r.headers.get('set-cookie');if(sc)cookie=sc.split(';')[0];
+    let data={};try{data=await r.json();}catch{}
+    return {status:r.status,data,headers:r.headers};
+  };
+}
+const check=(condition,label)=>{assert.ok(condition,label);checks++;};
+(async()=>{
+  let direct;
+  try{
+    for(let i=0;i<60;i++){try{if((await fetch(base+'/api/health')).ok)break;}catch{}if(child.exitCode!==null)throw Error('Server failed: '+serverLogs);await pause(100);}
+    const anon=client(),user=client(),other=client(),owner=client();
+    check((await anon('/api/health')).data.ok,'health');
+    const page=await fetch(base+'/');check(page.ok&&!(page.headers.has('x-frame-options')),'preview embedding');
+    check(!page.headers.get('content-security-policy').includes('frame-ancestors'),'preview CSP');
+    const routes=(await anon('/manus-routes.json')).data.routes;check(routes.some(r=>r.path==='/support')&&routes.some(r=>r.path==='/reader/:slug/:id'),'route manifest');
+    check((await anon('/api/admin/summary')).status===403,'admin cannot be anonymous');
+    check((await anon('/api/profile')).status===401,'profile protected');
+    check((await anon('/api/auth/register','POST',{email:'evil@test.invalid',username:'evil',password:'FixturePassword123!'},{Origin:'https://attacker.invalid'})).status===403,'cross-origin writes blocked');
+    let r=await user('/api/auth/register','POST',{email:'reader@test.invalid',username:'fixture_reader',password:'Fixture-Reader-123!'});
+    check(r.status===201,'registration');const uid=r.data.user.id;
+    check((await user('/api/me')).data.user.id===uid,'persisted session');
+    check((await other('/api/auth/register','POST',{email:'other@test.invalid',username:'fixture_other',password:'Fixture-Other-123!'})).status===201,'second user');
+    check((await owner('/api/auth/login','POST',{email:'owner@test.invalid',password:'Fixture-Owner-Password-123!'})).status===200,'owner login');
+    check((await owner('/api/admin/summary')).status===200,'owner summary');
+    const works=(await user('/api/works')).data;check(works.total===36&&works.works.length===24,'library pagination');
+    check((await user('/api/works?kind=manga')).data.works.every(w=>w.kind==='manga'),'kind filter');
+    check((await user('/api/works?genre=action')).data.total>0,'genre filter');
+    const w=works.works[0],details=(await user('/api/works/slug/'+w.slug)).data.work,c=details.chapters[0];
+    check((await user('/api/reader/'+c.id)).status===200,'reader API');
+    check((await user('/api/profile/preferences','PATCH',{theme:'light',reader_mode:'single',page_width:700})).data.preferences.theme==='light','preferences');
+    check((await user('/api/profile/favorites/'+w.id,'POST',{})).data.favorite,'add favorite');
+    check((await user('/api/profile')).data.favorites.some(f=>f.id===w.id),'favorite persisted');
+    check((await user('/api/works/'+w.id+'/rating','POST',{score:9})).status===200,'rating');
+    check((await user('/api/comments','POST',{work_id:w.id,body:'رأي تجريبي مفيد في هذه الحكاية.'})).status===201,'comment');
+    check((await user('/api/reports','POST',{target_type:'work',target_id:w.id,reason:'مشكلة تقنية',details:'اختبار بلاغ مرتبط بالعمل'})).status===201,'report target');
+    check((await user('/api/reports','POST',{target_type:'work',reason:'مشكلة تقنية'})).status===400,'missing report target rejected');
+    check((await user('/api/reports','POST',{target_type:'chapter',target_id:999999,reason:'مشكلة تقنية'})).status===404,'nonexistent report target rejected');
+    check((await user('/api/reports','POST',{target_type:'other',target_id:w.id,reason:'مشكلة تقنية'})).status===400,'general report cannot target unrelated entity');
+    const progress={work_id:w.id,chapter_id:c.id,progress:.5,last_page:1};
+    check((await user('/api/reader/progress','PUT',progress)).status===200,'progress save');
+    check((await user('/api/reader/progress','PUT',{...progress,work_id:works.works[1].id})).status===404,'mismatched work/chapter rejected');
+    await user('/api/reader/progress','PUT',progress);
+    direct=new Database(path.join(temp,'test.sqlite'));
+    check(direct.prepare('SELECT COUNT(*) n FROM reading_history WHERE user_id=? AND chapter_id=?').get(uid,c.id).n===1,'image loads do not duplicate history');
+    const tasks=(await user('/api/tasks')).data.tasks,task=tasks.find(t=>t.task_type==='daily_visit'),readTask=tasks.find(t=>t.task_type==='read_chapters');
+    check((await user('/api/tasks/'+readTask.id+'/claim','POST',{})).status===409,'incomplete task blocked');
+    check((await user('/api/tasks/'+task.id+'/claim','POST',{})).status===200,'qualified task');
+    check((await user('/api/tasks/'+task.id+'/claim','POST',{})).status===409,'task idempotency');
+    const discovery=tasks.find(t=>t.task_type==='discover');
+    check((await user('/api/tasks/'+discovery.id+'/claim','POST',{})).status===409,'incomplete discovery task blocked');
+    const category=direct.prepare('SELECT category_id FROM work_categories GROUP BY category_id HAVING COUNT(DISTINCT work_id)>=3 LIMIT 1').get();
+    const related=direct.prepare('SELECT w.slug FROM works w JOIN work_categories wc ON wc.work_id=w.id WHERE wc.category_id=? LIMIT 3').all(category.category_id);
+    for(const relatedWork of related)await user('/api/works/slug/'+relatedWork.slug);
+    check((await user('/api/tasks/'+discovery.id+'/claim','POST',{})).status===200,'three works of one genre qualify discovery');
+    const before=(await user('/api/me')).data.user.points;
+    const created=await owner('/api/admin/shop','POST',{name:'عنصر اختبار معزول',description:'اختبار خصم النقاط',cost:5,item_type:'badge'});const item=created.data.id;
+    check(created.status===201,'create fixture shop item');
+    r=await user('/api/shop/'+item+'/buy','POST',{});check(r.status===200&&r.data.points===before-5,'atomic shop purchase');
+    check((await user('/api/shop/'+item+'/buy','POST',{})).status===409,'duplicate purchase');
+    check((await user('/api/me')).data.user.points===before-5,'fresh wallet after purchase');
+    check(direct.prepare('SELECT delta,reason FROM wallet_events WHERE user_id=? ORDER BY id DESC').get(uid).delta===-5,'wallet ledger');
+    check((await user('/api/profile')).data.items.some(x=>x.id===item),'item ownership');
+    const broadcast=direct.prepare('SELECT id FROM notifications WHERE user_id IS NULL LIMIT 1').get();
+    await user('/api/notifications/read-all','PATCH',{});
+    check((await user('/api/notifications')).data.notifications.find(n=>n.id===broadcast.id).read_at,'read state saved');
+    check(!(await other('/api/notifications')).data.notifications.find(n=>n.id===broadcast.id).read_at,'broadcast read state independent');
+    await user('/api/notifications','DELETE');
+    check((await user('/api/notifications')).data.notifications.length===0,'hide own notifications');
+    check((await other('/api/notifications')).data.notifications.length>0,'other notifications preserved');
+    check((await owner('/api/admin/users/'+uid,'PATCH',{status:'suspended'})).status===200,'suspend account');
+    check((await user('/api/profile')).status===401,'existing suspended session loses access');
+    await owner('/api/admin/users/'+uid,'PATCH',{status:'active',role:'moderator'});
+    check((await user('/api/admin/users/'+uid,'PATCH',{role:'editor'})).status===403,'moderator cannot self escalate');
+    for(const endpoint of ['analytics','automation','works','categories','users','settings','audit'])check((await owner('/api/admin/'+endpoint)).status===200,'admin '+endpoint);
+    check((await owner('/api/admin/chapters?work_id='+w.id)).data.chapters.length>0,'admin chapter review list');
+    check((await user('/api/admin/chapters?work_id='+w.id)).status===403,'moderator cannot approve chapters');
+    check((await owner('/api/admin/chapters/'+c.id,'PATCH',{published:false})).status===200,'return chapter to draft');
+    check((await anon('/api/reader/'+c.id)).status===404,'draft chapter hidden from public');
+    check((await owner('/api/admin/chapters/'+c.id,'PATCH',{published:true})).status===200,'explicit human approval');
+    check((await anon('/api/reader/'+c.id)).status===200,'approved chapter public');
+    check((await owner('/api/admin/works/'+w.id,'PATCH',{published:'true'})).status===400,'strict publish flag');
+    check((await owner('/api/admin/works/'+w.id,'PATCH',{license_url:''})).status===403,'cannot strip license from published work');
+    check((await owner('/api/admin/settings','PATCH',{maintenance_mode:true})).status===200,'maintenance enable');
+    check((await anon('/api/works')).status===503,'maintenance public enforcement');
+    check((await owner('/api/admin/summary')).status===200,'maintenance permits administration');
+    console.log(`PASS: ${checks} isolated checks — sessions, discovery, reader integrity, permissions, CSRF origins, wallet/ownership, task conditions, notification isolation, maintenance, administration.`);
+  }catch(e){console.error('FAIL:',e.stack||e);if(serverLogs)console.error(serverLogs);process.exitCode=1;}
+  finally{direct?.close();child.kill('SIGTERM');await pause(300);fs.rmSync(temp,{recursive:true,force:true});}
+})();
