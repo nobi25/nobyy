@@ -6,8 +6,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
-
+RUN npm ci --omit=dev --no-audit --no-fund && npm install sqlite3
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production PORT=3000 DATABASE_PATH=/app/data/noby.sqlite
 RUN apt-get update \
