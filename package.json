@@ -1,15 +1,24 @@
+
 {
   "name": "noby-platform",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Noby Platform",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
-    "connect-sqlite3": "^7.0.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.5.0",
+    "connect-sqlite3": "^0.9.16",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "express-session": "^1.18.0"
+    "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "zod": "^3.23.8"
   }
 }
